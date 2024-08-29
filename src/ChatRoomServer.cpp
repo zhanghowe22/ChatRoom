@@ -38,7 +38,7 @@ void ChatServer::setupServer() {
     }
 
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_addr.s_addr = inet_addr("127.0.0.1");
     address.sin_port = htons(port);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
@@ -66,7 +66,7 @@ void ChatServer::setupServer() {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "Server is listening on port " << port << std::endl;
+    std::cout << "Server " << inet_ntoa(address.sin_addr) << " is listening on port " << port << std::endl;
 }
 
 void ChatServer::setNonBlocking(int sockfd) {
