@@ -1,0 +1,9 @@
+# 忽略所有 .log 文件
+*.log
+
+# 忽略某个目录
+build/
+.vscode
+
+# 忽略所有 .tmp 文件
+*.tmp
