@@ -4,34 +4,35 @@
 #include <QWidget>
 #include <QTcpSocket>
 #include <QFile>
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QProgressBar>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Client; }
 QT_END_NAMESPACE
 
-class Client : public QWidget {
+class Client : public QWidget
+{
     Q_OBJECT
 
 public:
-    explicit Client(QWidget *parent = nullptr);
+    Client(QWidget *parent = nullptr);
     ~Client();
 
 private slots:
     void connectToServer();
-    void onConnected();
-    void onDisconnected();
-    void onDataReceived();
     void sendMessage();
     void sendFile();
-    void updateProgress(qint64 bytesSent);
+    void receiveFile();
+    void handleFileHeader(const QByteArray &headerData);
+    void handleFileData();
+    void displayError(QAbstractSocket::SocketError socketError);
 
 private:
     Ui::Client *ui;
     QTcpSocket *tcpSocket;
-    qint64 totalBytesToSend;
+    QString currentFileName;
+    qint64 totalBytesToReceive;
+    qint64 bytesReceived;
+    QFile *receivedFile;
 };
 
 #endif // CLIENT_H
