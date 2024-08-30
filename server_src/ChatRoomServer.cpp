@@ -158,6 +158,22 @@ void ChatServer::handleNewConnection()
     std::cout << client_id << " connected." << std::endl;
 }
 
+void ChatServer::sendFileToClients(const std::string &fileName, const int &exclude_fd) {
+    std::ifstream file(fileName, std::ios::binary);
+    if (!file) {
+        std::cerr << "Failed to open file for reading: " << fileName << std::endl;
+        return;
+    }
+
+    // Read file data
+    std::vector<char> fileData((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+
+    // Send file data to all clients
+    write(exclude_fd, fileData.data(), fileData.size());
+          
+}
+
 void ChatServer::handleClientMessage(int client_fd)
 {
     char buffer[BUFFER_SIZE];
@@ -166,9 +182,21 @@ void ChatServer::handleClientMessage(int client_fd)
     int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
     if (bytes_read > 0)
     {
-        std::string message = m_clients[client_fd] + ": " + buffer;
-        std::cout << message << std::endl;
-        broadcastMessage(message, client_fd);
+        std::string receivedData(buffer, bytes_read);
+        // 处理文件消息
+        if (receivedData.find("FILE:") == 0)
+        {
+            std::string fileName = receivedData.substr(5);
+            m_clients[client_fd] = fileName;
+            // Send file to all other clients
+            sendFileToClients(fileName, client_fd);
+        }
+        else
+        {
+            std::string message = m_clients[client_fd] + ": " + buffer;
+            std::cout << message << std::endl;
+            broadcastMessage(message, client_fd);
+        }
     }
     else if (bytes_read == 0)
     {

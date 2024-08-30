@@ -2,8 +2,10 @@
 #define CHATSERVER_H
 
 #include <map>
-#include <string>
-
+#include <fcntl.h>
+#include <cstring>
+#include <fstream>
+#include <vector>
 class ChatServer
 {
 public:
@@ -39,6 +41,8 @@ private:
 
     // 处理客户端消息
     void handleClientMessage(int client_fd);
+
+    void sendFileToClients(const std::string &fileName, const int &exclude_fd);
 };
 
 #endif // CHATSERVER_H
