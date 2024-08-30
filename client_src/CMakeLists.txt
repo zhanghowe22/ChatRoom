@@ -15,14 +15,15 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Core NetWork)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Core NetWork)
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
-        client.cpp
-        client.h
+         main.cpp
+#        mainwindow.cpp
+#        mainwindow.h
+#        mainwindow.ui
+#        client.cpp
+#        client.h
         chatClient.cpp
         chatClient.h
+        chatClient.ui
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
