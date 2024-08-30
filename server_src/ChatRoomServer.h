@@ -22,6 +22,7 @@ private:
 
     std::map<int, std::string> m_clients; // map<描述符,客户端标识>
 
+    // 服务端启动监听
     void setupServer();
 
     // 设置为非阻塞，避免延迟引起的程序挂起

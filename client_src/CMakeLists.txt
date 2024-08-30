@@ -21,6 +21,8 @@ set(PROJECT_SOURCES
         mainwindow.ui
         client.cpp
         client.h
+        chatClient.cpp
+        chatClient.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
