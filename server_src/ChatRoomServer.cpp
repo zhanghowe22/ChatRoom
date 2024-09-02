@@ -1,11 +1,4 @@
 #include "ChatRoomServer.h"
-#include <iostream>
-#include <sys/epoll.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <cstring>
-#include <netinet/in.h>
-#include <fcntl.h>
 
 #define MAX_EVENTS 10
 #define BUFFER_SIZE 1024
@@ -158,20 +151,113 @@ void ChatServer::handleNewConnection()
     std::cout << client_id << " connected." << std::endl;
 }
 
-void ChatServer::sendFileToClients(const std::string &fileName, const int &exclude_fd) {
+void ChatServer::broadcastFileInfo(const std::string &fileName, uint64_t fileSize, const int &exclude_fd)
+{
+    std::string fileInfoHeader = "FILE_INFO:" + fileName + ":" + std::to_string(fileSize) + "\n";
+    for (const auto &client : m_clients)
+    {
+        if (client.first == exclude_fd)
+        {
+            continue;
+        }
+        send(client.first, fileInfoHeader.c_str(), fileInfoHeader.size(), 0);
+    }
+}
+
+void ChatServer::sendFileToClients(const std::string &fileName, const int &exclude_fd)
+{
     std::ifstream file(fileName, std::ios::binary);
-    if (!file) {
+    if (!file)
+    {
         std::cerr << "Failed to open file for reading: " << fileName << std::endl;
         return;
     }
 
-    // Read file data
-    std::vector<char> fileData((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    file.close();
+    // 分块读取和发送文件数据
+    const int bufferSize = 64 * 1024; // 64KB 缓冲区
+    char buffer[bufferSize];
 
-    // Send file data to all clients
-    write(exclude_fd, fileData.data(), fileData.size());
-          
+    for (const auto &client : m_clients)
+    {
+        int client_fd = client.first;
+
+        // 排除发送者
+        if (client_fd == exclude_fd)
+        {
+            continue;
+        }
+
+        // 发送文件头信息（假设文件名信息）
+        std::string fileHeader = "FILE:" + fileName + "\n";
+        ssize_t headerSent = write(client_fd, fileHeader.c_str(), fileHeader.size());
+        if (headerSent < 0)
+        {
+            std::cerr << "Failed to send file header to client " << client_fd << ": " << strerror(errno) << std::endl;
+            continue;
+        }
+
+        // 重置文件流位置为文件开始
+        file.clear(); // 清除文件流状态
+        file.seekg(0, std::ios::beg);
+
+        while (file.read(buffer, bufferSize))
+        {
+            ssize_t bytesSent = write(client_fd, buffer, file.gcount());
+            if (bytesSent < 0)
+            {
+                std::cerr << "Error sending file data to client " << client_fd << ": " << strerror(errno) << std::endl;
+                break;
+            }
+        }
+
+        std::cout << "File " << fileName << " sent to client " << client_fd << " successfully." << std::endl;
+    }
+
+    file.close();
+}
+
+void ChatServer::receiveFileData(int client_fd, const std::string &fileName, int fileSize)
+{
+    std::ofstream file(fileName, std::ios::binary);
+    if (!file)
+    {
+        std::cerr << "Failed to open file for writing: " << fileName << std::endl;
+        return;
+    }
+
+    int totalBytesReceived = 0;
+    char buffer[BUFFER_SIZE];
+    while (totalBytesReceived < fileSize)
+    {
+        int bytesReceived = read(client_fd, buffer, sizeof(buffer));
+        if (bytesReceived > 0)
+        {
+            file.write(buffer, bytesReceived);
+            totalBytesReceived += bytesReceived;
+        }
+        else if (bytesReceived == 0)
+        {
+            std::cout << "Client " << client_fd << " disconnected during file transfer." << std::endl;
+            break;
+        }
+        else
+        {
+            std::cerr << "Error receiving file data from client " << client_fd << ": " << strerror(errno) << std::endl;
+            break;
+        }
+    }
+
+    file.close();
+    if (totalBytesReceived == fileSize)
+    {
+        std::cout << "File received successfully from client " << client_fd << ": " << fileName << std::endl;
+        // 将文件广播给其他客户端
+        sendFileToClients(fileName, client_fd);
+    }
+    else
+    {
+        std::cerr << "File transfer incomplete or failed from client " << client_fd << std::endl;
+    }
 }
 
 void ChatServer::handleClientMessage(int client_fd)
@@ -183,14 +269,40 @@ void ChatServer::handleClientMessage(int client_fd)
     if (bytes_read > 0)
     {
         std::string receivedData(buffer, bytes_read);
-        // 处理文件消息
-        if (receivedData.find("FILE:") == 0)
+
+        // Handle file info message
+        if (receivedData.find("FILE_INFO:") == 0)
         {
-            std::string fileName = receivedData.substr(5);
-            m_clients[client_fd] = fileName;
-            // Send file to all other clients
-            sendFileToClients(fileName, client_fd);
+            // Extract file name and size from message
+            size_t firstColon = receivedData.find(":");
+            size_t secondColon = receivedData.find(":", firstColon + 1);
+            if (secondColon != std::string::npos)
+            {
+                std::string fileName = receivedData.substr(firstColon + 1, secondColon - firstColon - 1);
+                std::string fileSizeStr = receivedData.substr(secondColon + 1);
+                int fileSize = std::stoi(fileSizeStr);
+
+                // Notify other clients about the new file
+                broadcastFileInfo(fileName, fileSize, client_fd);
+                receiveFileData(client_fd, fileName, fileSize);
+            }
         }
+        // Handle file data
+        else if (receivedData.find("FILE:") == 0)
+        {
+            // Handle file transfer as before
+            size_t firstColon = receivedData.find(":");
+            size_t secondColon = receivedData.find(":", firstColon + 1);
+            if (secondColon != std::string::npos)
+            {
+                std::string fileName = receivedData.substr(firstColon + 1, secondColon - firstColon - 1);
+                std::string fileSizeStr = receivedData.substr(secondColon + 1);
+                int fileSize = std::stoi(fileSizeStr);
+
+                receiveFileData(client_fd, fileName, fileSize);
+            }
+        }
+        // Handle chat messages
         else
         {
             std::string message = m_clients[client_fd] + ": " + buffer;
@@ -201,6 +313,12 @@ void ChatServer::handleClientMessage(int client_fd)
     else if (bytes_read == 0)
     {
         std::cout << m_clients[client_fd] << " disconnected." << std::endl;
+        close(client_fd);
+        m_clients.erase(client_fd);
+    }
+    else
+    {
+        std::cerr << "Error reading from client " << client_fd << ": " << strerror(errno) << std::endl;
         close(client_fd);
         m_clients.erase(client_fd);
     }

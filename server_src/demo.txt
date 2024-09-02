@@ -1,0 +1,52 @@
+/*
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [{
+        "name": "chatServer",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceFolder}/build/ChatRoomServer",
+        "cwd": "${workspaceFolder}/build",
+        "args": [],
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "setupCommands": [
+            {
+                "description": "为 gdb 启用整齐打印",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            }
+        ],
+        "sourceFileMap":{
+                "/build/glibc-eX1tMB": "/usr/src/glibc",
+            }
+      },
+      {
+        "name": "zmqTransfer",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceFolder}/build/bin/zmqTransfer",
+        "args": [],          
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}/build/bin",
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "setupCommands": [
+            {
+                "description": "为 gdb 启用整齐打印",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+            }
+        ],
+        "sourceFileMap":{
+                "/build/glibc-eX1tMB": "/usr/src/glibc",
+            }
+    },
+      ]
+}
+*/

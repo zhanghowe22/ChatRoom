@@ -6,6 +6,13 @@
 #include <cstring>
 #include <fstream>
 #include <vector>
+#include <iostream>
+#include <sys/epoll.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <cstring>
+#include <netinet/in.h>
+#include <fcntl.h>
 class ChatServer
 {
 public:
@@ -41,6 +48,12 @@ private:
 
     // 处理客户端消息
     void handleClientMessage(int client_fd);
+
+    // 接收文件数据
+    void receiveFileData(int client_fd, const std::string &fileName, int fileSize);
+
+    // 广播文件信息
+    void broadcastFileInfo(const std::string &fileName, uint64_t fileSize, const int &exclude_fd);
 
     void sendFileToClients(const std::string &fileName, const int &exclude_fd);
 };
