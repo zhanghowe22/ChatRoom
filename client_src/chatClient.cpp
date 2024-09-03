@@ -18,7 +18,6 @@ Client::Client(QWidget* parent) :
     connect(ui->connectButton, &QPushButton::clicked, this, &Client::connectToServer);
     connect(ui->sendButton, &QPushButton::clicked, this, &Client::sendMessage);
     connect(ui->sendFileButton, &QPushButton::clicked, this, &Client::sendFile);
-    connect(ui->receiveFileButton, &QPushButton::clicked, this, &Client::receiveFile);
 }
 
 Client::~Client() { delete ui; }
@@ -49,7 +48,7 @@ void Client::connectToServer() {
             if (data.startsWith("FILE_INFO:")) {
                 handleFileInfo(data);
             } else if (data.startsWith("FILE:")) {
-                handleFileHeader(data);
+                handleFileData();
             } else {
                 ui->textBrowserChat->append("Server: " + QString(data));
             }
@@ -77,7 +76,9 @@ void Client::handleFileInfo(const QByteArray& fileInfoData) {
         QString("Do you want to download the file '%1' of size %2 bytes?").arg(fileName).arg(fileSize),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
-        receiveFile();
+        QString request = QString("REQUEST_FILE:%1").arg(fileName);
+        tcpSocket->write(request.toUtf8());
+        tcpSocket->flush();
     }
 }
 
@@ -155,32 +156,6 @@ void Client::sendFile() {
     }
 }
 
-void Client::receiveFile() {
-    if (!tcpSocket || tcpSocket->state() != QAbstractSocket::ConnectedState) {
-        QMessageBox::warning(this, "Error", "Not connected to any server.");
-        return;
-    }
-
-    QString saveFileName = QFileDialog::getSaveFileName(this, "Save File As");
-    if (saveFileName.isEmpty()) {
-        return;
-    }
-
-    receivedFile = new QFile(saveFileName);
-    if (!receivedFile->open(QIODevice::WriteOnly)) {
-        QMessageBox::warning(this, "Error", "Failed to open file for writing.");
-        delete receivedFile;
-        receivedFile = nullptr;
-        return;
-    }
-
-    bytesReceived = 0;
-    ui->progressBar->setValue(0);
-    ui->progressBar->show();
-
-    connect(tcpSocket, &QTcpSocket::readyRead, this, &Client::handleFileData);
-}
-
 void Client::handleFileHeader(const QByteArray& headerData) {
     QDataStream headerStream(headerData);
     QString fileName;
@@ -209,7 +184,7 @@ void Client::handleFileHeader(const QByteArray& headerData) {
     ui->progressBar->setValue(0);
     ui->progressBar->show();
 
-    connect(tcpSocket, &QTcpSocket::readyRead, this, &Client::handleFileData);
+    // connect(tcpSocket, &QTcpSocket::readyRead, this, &Client::handleFileData);
 }
 
 void Client::handleFileData() {
