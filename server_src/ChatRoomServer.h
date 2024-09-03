@@ -46,6 +46,8 @@ private:
     // 处理客户端连接请求
     void handleNewConnection();
 
+    void handleFileRequest(int client_fd, const std::string &request);
+
     // 处理客户端消息
     void handleClientMessage(int client_fd);
 

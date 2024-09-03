@@ -187,7 +187,7 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
             continue;
         }
 
-        // 发送文件头信息（假设文件名信息）
+        // 发送文件头信息
         std::string fileHeader = "FILE:" + fileName + "\n";
         ssize_t headerSent = write(client_fd, fileHeader.c_str(), fileHeader.size());
         if (headerSent < 0)
@@ -251,12 +251,19 @@ void ChatServer::receiveFileData(int client_fd, const std::string &fileName, int
     if (totalBytesReceived == fileSize)
     {
         std::cout << "File received successfully from client " << client_fd << ": " << fileName << std::endl;
-        // 将文件广播给其他客户端
-        sendFileToClients(fileName, client_fd);
     }
     else
     {
         std::cerr << "File transfer incomplete or failed from client " << client_fd << std::endl;
+    }
+}
+
+void ChatServer::handleFileRequest(int client_fd, const std::string &request) {
+    // Extract file name from the request
+    size_t colonPos = request.find(":");
+    if (colonPos != std::string::npos) {
+        std::string fileName = request.substr(colonPos + 1);
+        sendFileToClients(fileName, client_fd);
     }
 }
 
@@ -282,25 +289,24 @@ void ChatServer::handleClientMessage(int client_fd)
                 std::string fileSizeStr = receivedData.substr(secondColon + 1);
                 int fileSize = std::stoi(fileSizeStr);
 
-                // Notify other clients about the new file
+                std::ofstream file(fileName, std::ios::binary);
+                if (!file)
+                {
+                    std::cerr << "Failed to open file for writing: " << fileName << std::endl;
+                    return;
+                }
+                
+                file.write(buffer, bytes_read);
+                
+                // receiveFileData(client_fd, fileName, fileSize);
+
                 broadcastFileInfo(fileName, fileSize, client_fd);
-                receiveFileData(client_fd, fileName, fileSize);
             }
         }
         // Handle file data
-        else if (receivedData.find("FILE:") == 0)
+        else if (receivedData.find("REQUEST_FILE:") == 0)
         {
-            // Handle file transfer as before
-            size_t firstColon = receivedData.find(":");
-            size_t secondColon = receivedData.find(":", firstColon + 1);
-            if (secondColon != std::string::npos)
-            {
-                std::string fileName = receivedData.substr(firstColon + 1, secondColon - firstColon - 1);
-                std::string fileSizeStr = receivedData.substr(secondColon + 1);
-                int fileSize = std::stoi(fileSizeStr);
-
-                receiveFileData(client_fd, fileName, fileSize);
-            }
+           handleFileRequest(client_fd, receivedData);
         }
         // Handle chat messages
         else
