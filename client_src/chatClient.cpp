@@ -70,6 +70,14 @@ void Client::handleFileInfo(const QByteArray& fileInfoData) {
     QString fileName = fileInfoParts[1];
     qint64 fileSize = fileInfoParts[2].toLongLong();
 
+    receivedFile = new QFile(fileName);
+    if (!receivedFile->open(QIODevice::WriteOnly)) {
+        QMessageBox::warning(this, "Error", "Failed to open file for writing.");
+        delete receivedFile;
+        receivedFile = nullptr;
+        return;
+    }
+
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(
         this, "File Transfer",
@@ -113,15 +121,15 @@ void Client::sendFile() {
     }
 
     // 发送文件头
-    QString fileHeader = QString("FILE_INFO:%1:%2").arg(QFileInfo(file).fileName()).arg(file.size());
+    QString fileHeader = QString("FILE_INFO:%1:%2:").arg(QFileInfo(file).fileName()).arg(file.size());
     QByteArray headerBytes = fileHeader.toUtf8();
     tcpSocket->write(headerBytes);
-    tcpSocket->flush();  // 确保头部发送完毕
+    tcpSocket->flush();  // 在发送文件内容前，先将头部发送完毕
 
     // 创建进度条
-    QProgressDialog progressDialog("Sending file...", "Cancel", 0, file.size(), this);
-    progressDialog.setWindowModality(Qt::WindowModal);
-    progressDialog.setMinimumDuration(0);  // 立即显示进度条
+    //    QProgressDialog progressDialog("Sending file...", "Cancel", 0, file.size(), this);
+    //    progressDialog.setWindowModality(Qt::WindowModal);
+    //    progressDialog.setMinimumDuration(0);  // 立即显示进度条
 
     // 分块发送文件数据
     const qint64 bufferSize = 64 * 1024;  // 每次读取64KB
@@ -129,10 +137,10 @@ void Client::sendFile() {
     QByteArray buffer;
 
     while (!file.atEnd()) {
-        if (progressDialog.wasCanceled()) {
-            QMessageBox::information(this, "Canceled", "File transfer was canceled");
-            break;
-        }
+        //        if (progressDialog.wasCanceled()) {
+        //            QMessageBox::information(this, "Canceled", "File transfer was canceled");
+        //            break;
+        //        }
 
         buffer = file.read(bufferSize);
         qint64 result = tcpSocket->write(buffer);
@@ -142,7 +150,7 @@ void Client::sendFile() {
         }
         tcpSocket->flush();
         bytesSent += result;
-        progressDialog.setValue(bytesSent);
+        //        progressDialog.setValue(bytesSent);
     }
 
     file.close();
@@ -156,63 +164,38 @@ void Client::sendFile() {
     }
 }
 
-void Client::handleFileHeader(const QByteArray& headerData) {
-    QDataStream headerStream(headerData);
-    QString fileName;
-    qint64 fileSize;
-    QString fileType;
-
-    headerStream >> fileType >> fileName >> fileSize;
-
-    if (fileType != "FILE") {
-        QMessageBox::warning(this, "Error", "Invalid file header.");
-        return;
-    }
-
-    totalBytesToReceive = fileSize;
-    bytesReceived = 0;
-
-    receivedFile = new QFile(fileName);
-    if (!receivedFile->open(QIODevice::WriteOnly)) {
-        QMessageBox::warning(this, "Error", "Failed to open file for writing.");
-        delete receivedFile;
-        receivedFile = nullptr;
-        return;
-    }
-
-    ui->progressBar->setMaximum(totalBytesToReceive);
-    ui->progressBar->setValue(0);
-    ui->progressBar->show();
-
-    // connect(tcpSocket, &QTcpSocket::readyRead, this, &Client::handleFileData);
-}
-
 void Client::handleFileData() {
-    if (!tcpSocket || !tcpSocket->bytesAvailable() || !receivedFile || !receivedFile->isOpen()) {
+    if (!tcpSocket || !receivedFile || !receivedFile->isOpen()) {
         return;
     }
 
-    QByteArray fileData = tcpSocket->readAll();
-    qint64 bytesWritten = receivedFile->write(fileData);
-    if (bytesWritten == -1) {
-        QMessageBox::warning(this, "Error", "Failed to write file data.");
-        receivedFile->close();
-        delete receivedFile;
-        receivedFile = nullptr;
-        disconnect(tcpSocket, &QTcpSocket::readyRead, this, &Client::handleFileData);
-        return;
-    }
+    // 读取可用的数据
+    while (tcpSocket->bytesAvailable() > 0) {
+        QByteArray fileData = tcpSocket->readAll();
+        qint64 bytesWritten = receivedFile->write(fileData);
 
-    bytesReceived += bytesWritten;
-    ui->progressBar->setValue(bytesReceived);
+        if (bytesWritten == -1) {
+            QMessageBox::warning(this, "Error", "Failed to write file data.");
+            receivedFile->close();
+            delete receivedFile;
+            receivedFile = nullptr;
+            ui->progressBar->hide();
+            disconnect(tcpSocket, &QTcpSocket::readyRead, this, &Client::handleFileData);
+            return;
+        }
 
-    if (bytesReceived >= totalBytesToReceive) {
-        QMessageBox::information(this, "File Received", "File received completely.");
-        ui->progressBar->hide();
-        receivedFile->close();
-        delete receivedFile;
-        receivedFile = nullptr;
-        disconnect(tcpSocket, &QTcpSocket::readyRead, this, &Client::handleFileData);
+        bytesReceived += bytesWritten;
+        ui->progressBar->setValue(bytesReceived);
+
+        if (bytesReceived >= totalBytesToReceive) {
+            QMessageBox::information(this, "File Received", "File received completely.");
+            ui->progressBar->hide();
+            receivedFile->close();
+            delete receivedFile;
+            receivedFile = nullptr;
+            disconnect(tcpSocket, &QTcpSocket::readyRead, this, &Client::handleFileData);
+            return;
+        }
     }
 }
 

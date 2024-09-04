@@ -22,7 +22,6 @@ class Client : public QWidget {
     void connectToServer();
     void sendMessage();
     void sendFile();
-    void handleFileHeader(const QByteArray& headerData);
     void handleFileData();
     void displayError(QAbstractSocket::SocketError socketError);
     void handleFileInfo(const QByteArray& fileInfoData);
