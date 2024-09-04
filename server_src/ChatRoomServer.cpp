@@ -3,7 +3,7 @@
 #define MAX_EVENTS 10
 #define BUFFER_SIZE 1024
 
-ChatServer::ChatServer(int port) : port(port), server_fd(-1), m_epoll_fd(-1) {}
+ChatServer::ChatServer(int port) : port(port), server_fd(-1), m_epoll_fd(-1), m_fileSize(0) {}
 
 ChatServer::~ChatServer()
 {
@@ -73,6 +73,28 @@ void ChatServer::setupServer()
     std::cout << "Server [" << inet_ntoa(address.sin_addr) << "] is listening on port " << port << std::endl;
 }
 
+void ChatServer::run()
+{
+    struct epoll_event events[MAX_EVENTS];
+
+    while (true)
+    {
+        int n = epoll_wait(m_epoll_fd, events, MAX_EVENTS, -1);
+
+        for (int i = 0; i < n; i++)
+        {
+            if (events[i].data.fd == server_fd)
+            {
+                handleNewConnection();
+            }
+            else
+            {
+                handleClientMessage(events[i].data.fd);
+            }
+        }
+    }
+}
+
 void ChatServer::setNonBlocking(int sockfd)
 {
     int opts = fcntl(sockfd, F_GETFL);
@@ -96,28 +118,6 @@ void ChatServer::broadcastMessage(const std::string &message, int exclude_fd)
         if (client.first != exclude_fd)
         {
             send(client.first, message.c_str(), message.size(), 0);
-        }
-    }
-}
-
-void ChatServer::run()
-{
-    struct epoll_event events[MAX_EVENTS];
-
-    while (true)
-    {
-        int n = epoll_wait(m_epoll_fd, events, MAX_EVENTS, -1);
-
-        for (int i = 0; i < n; i++)
-        {
-            if (events[i].data.fd == server_fd)
-            {
-                handleNewConnection();
-            }
-            else
-            {
-                handleClientMessage(events[i].data.fd);
-            }
         }
     }
 }
@@ -149,6 +149,59 @@ void ChatServer::handleNewConnection()
     std::string client_id = "Client " + std::to_string(new_socket);
     m_clients[new_socket] = client_id;
     std::cout << client_id << " connected." << std::endl;
+}
+
+void ChatServer::handleClientMessage(int client_fd)
+{
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
+
+    int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+    if (bytes_read > 0)
+    {
+        std::string receivedData(buffer, bytes_read);
+
+        // Handle file info message
+        if (receivedData.find("FILE_INFO:") == 0)
+        {
+             std::cout << "Recv file from client " << client_fd  << ", file head len " << bytes_read << std::endl;
+            // Extract file name and size from message
+            size_t firstColon = receivedData.find(":");
+            size_t secondColon = receivedData.find(":", firstColon + 1);
+            if (secondColon != std::string::npos)
+            {
+                std::string fileName = receivedData.substr(firstColon + 1, secondColon - firstColon - 1);
+                std::string fileSizeStr = receivedData.substr(secondColon + 1);
+                int fileSize = std::stoi(fileSizeStr);
+                receiveFileData(client_fd, fileName, fileSize);
+                broadcastFileInfo(fileName, fileSize, client_fd);
+            }
+        }
+        // Handle file data
+        else if (receivedData.find("REQUEST_FILE:") == 0)
+        {
+           handleFileRequest(client_fd, receivedData);
+        }
+        // Handle chat messages
+        else
+        {
+            std::string message = m_clients[client_fd] + ": " + buffer;
+            std::cout << message << std::endl;
+            broadcastMessage(message, client_fd);
+        }
+    }
+    else if (bytes_read == 0)
+    {
+        std::cout << m_clients[client_fd] << " disconnected." << std::endl;
+        close(client_fd);
+        m_clients.erase(client_fd);
+    }
+    else
+    {
+        std::cerr << "Error reading from client " << client_fd << ": " << strerror(errno) << std::endl;
+        close(client_fd);
+        m_clients.erase(client_fd);
+    }
 }
 
 void ChatServer::broadcastFileInfo(const std::string &fileName, uint64_t fileSize, const int &exclude_fd)
@@ -196,10 +249,6 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
             continue;
         }
 
-        // 重置文件流位置为文件开始
-        file.clear(); // 清除文件流状态
-        file.seekg(0, std::ios::beg);
-
         while (file.read(buffer, bufferSize))
         {
             ssize_t bytesSent = write(client_fd, buffer, file.gcount());
@@ -211,6 +260,10 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
         }
 
         std::cout << "File " << fileName << " sent to client " << client_fd << " successfully." << std::endl;
+
+        // 重置文件流位置为文件开始
+        file.clear(); // 清除文件流状态
+        file.seekg(0, std::ios::beg);
     }
 
     file.close();
@@ -229,7 +282,8 @@ void ChatServer::receiveFileData(int client_fd, const std::string &fileName, int
     char buffer[BUFFER_SIZE];
     while (totalBytesReceived < fileSize)
     {
-        int bytesReceived = read(client_fd, buffer, sizeof(buffer));
+        int bytesReceived = recv(client_fd, buffer, sizeof(buffer), 0);
+        std::cout << "Read from file byte " << bytesReceived << std::endl;
         if (bytesReceived > 0)
         {
             file.write(buffer, bytesReceived);
@@ -264,68 +318,5 @@ void ChatServer::handleFileRequest(int client_fd, const std::string &request) {
     if (colonPos != std::string::npos) {
         std::string fileName = request.substr(colonPos + 1);
         sendFileToClients(fileName, client_fd);
-    }
-}
-
-void ChatServer::handleClientMessage(int client_fd)
-{
-    char buffer[BUFFER_SIZE];
-    memset(buffer, 0, sizeof(buffer));
-
-    int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
-    if (bytes_read > 0)
-    {
-        std::string receivedData(buffer, bytes_read);
-
-        // Handle file info message
-        if (receivedData.find("FILE_INFO:") == 0)
-        {
-            // Extract file name and size from message
-            size_t firstColon = receivedData.find(":");
-            size_t secondColon = receivedData.find(":", firstColon + 1);
-            if (secondColon != std::string::npos)
-            {
-                std::string fileName = receivedData.substr(firstColon + 1, secondColon - firstColon - 1);
-                std::string fileSizeStr = receivedData.substr(secondColon + 1);
-                int fileSize = std::stoi(fileSizeStr);
-
-                std::ofstream file(fileName, std::ios::binary);
-                if (!file)
-                {
-                    std::cerr << "Failed to open file for writing: " << fileName << std::endl;
-                    return;
-                }
-                
-                file.write(buffer, bytes_read);
-                
-                // receiveFileData(client_fd, fileName, fileSize);
-
-                broadcastFileInfo(fileName, fileSize, client_fd);
-            }
-        }
-        // Handle file data
-        else if (receivedData.find("REQUEST_FILE:") == 0)
-        {
-           handleFileRequest(client_fd, receivedData);
-        }
-        // Handle chat messages
-        else
-        {
-            std::string message = m_clients[client_fd] + ": " + buffer;
-            std::cout << message << std::endl;
-            broadcastMessage(message, client_fd);
-        }
-    }
-    else if (bytes_read == 0)
-    {
-        std::cout << m_clients[client_fd] << " disconnected." << std::endl;
-        close(client_fd);
-        m_clients.erase(client_fd);
-    }
-    else
-    {
-        std::cerr << "Error reading from client " << client_fd << ": " << strerror(errno) << std::endl;
-        close(client_fd);
-        m_clients.erase(client_fd);
     }
 }
