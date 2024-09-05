@@ -1,4 +1,5 @@
 #include "ChatRoomServer.h"
+#include <string>
 
 #define MAX_EVENTS 10
 #define BUFFER_SIZE 1024
@@ -173,6 +174,7 @@ void ChatServer::handleClientMessage(int client_fd)
                 std::string fileName = receivedData.substr(firstColon + 1, secondColon - firstColon - 1);
                 std::string fileSizeStr = receivedData.substr(secondColon + 1);
                 int fileSize = std::stoi(fileSizeStr);
+                m_fileSize = fileSize;
                 receiveFileData(client_fd, fileName, fileSize);
                 broadcastFileInfo(fileName, fileSize, client_fd);
             }
@@ -226,7 +228,6 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
         return;
     }
 
-    // 分块读取和发送文件数据
     const int bufferSize = 64 * 1024; // 64KB 缓冲区
     char buffer[bufferSize];
 
@@ -234,27 +235,56 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
     {
         int client_fd = client.first;
 
-        // 排除发送者
-        if (client_fd == exclude_fd)
+        if (client_fd != exclude_fd)
         {
             continue;
         }
 
         // 发送文件头信息
-        std::string fileHeader = "FILE:" + fileName + "\n";
-        ssize_t headerSent = write(client_fd, fileHeader.c_str(), fileHeader.size());
-        if (headerSent < 0)
+        std::string fileHeader = "FILE:" + fileName + ":" + std::to_string(m_fileSize) + ":";
+        ssize_t totalHeaderSent = 0;
+        while (totalHeaderSent < fileHeader.size())
         {
-            std::cerr << "Failed to send file header to client " << client_fd << ": " << strerror(errno) << std::endl;
+            ssize_t headerSent = write(client_fd, fileHeader.c_str() + totalHeaderSent, fileHeader.size() - totalHeaderSent);
+            if (headerSent < 0)
+            {
+                std::cerr << "Failed to send file header to client " << client_fd << ": " << strerror(errno) << std::endl;
+                break;
+            }
+            totalHeaderSent += headerSent;
+        }
+
+        if (totalHeaderSent < fileHeader.size())
+        {
+            // 文件头发送失败，跳过当前客户端
             continue;
         }
 
-        while (file.read(buffer, bufferSize))
+        // 强制刷新文头信息到缓冲
+        int flag = 1;
+        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
+
+        // 发送文件数据
+        while (!file.eof())
         {
-            ssize_t bytesSent = write(client_fd, buffer, file.gcount());
-            if (bytesSent < 0)
+            file.read(buffer, bufferSize);
+            std::streamsize bytesRead = file.gcount();
+            ssize_t totalBytesSent = 0;
+
+            while (totalBytesSent < bytesRead)
             {
-                std::cerr << "Error sending file data to client " << client_fd << ": " << strerror(errno) << std::endl;
+                ssize_t bytesSent = write(client_fd, buffer + totalBytesSent, bytesRead - totalBytesSent);
+                if (bytesSent < 0)
+                {
+                    std::cerr << "Error sending file data to client " << client_fd << ": " << strerror(errno) << std::endl;
+                    break;
+                }
+                totalBytesSent += bytesSent;
+            }
+
+            if (totalBytesSent < bytesRead)
+            {
+                // 文件数据发送失败，跳过当前客户端
                 break;
             }
         }
@@ -262,12 +292,13 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
         std::cout << "File " << fileName << " sent to client " << client_fd << " successfully." << std::endl;
 
         // 重置文件流位置为文件开始
-        file.clear(); // 清除文件流状态
+        file.clear();
         file.seekg(0, std::ios::beg);
     }
 
     file.close();
 }
+
 
 void ChatServer::receiveFileData(int client_fd, const std::string &fileName, int fileSize)
 {

@@ -13,6 +13,8 @@
 #include <cstring>
 #include <netinet/in.h>
 #include <fcntl.h>
+#include <netinet/tcp.h>
+
 class ChatServer
 {
 public:
