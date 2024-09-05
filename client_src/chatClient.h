@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QTcpSocket>
 #include <QWidget>
+#include <QUuid>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -17,12 +18,14 @@ class Client : public QWidget {
   public:
     Client(QWidget* parent = nullptr);
     ~Client();
+private:
+    QString generateClientId(); // 生成客户端ID
 
   private slots:
     void connectToServer();
     void sendMessage();
     void sendFile();
-    void handleFileData();
+    void handleFileData(const QByteArray& fileInfoData);
     void displayError(QAbstractSocket::SocketError socketError);
     void handleFileInfo(const QByteArray& fileInfoData);
 
