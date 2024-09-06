@@ -24,7 +24,6 @@ void ChatServer::setupServer()
 {
     struct sockaddr_in address;
     int opt = 1;
-    int addrlen = sizeof(address);
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
@@ -39,6 +38,7 @@ void ChatServer::setupServer()
     }
 
     address.sin_family = AF_INET;
+    // TODO: IP改为获取本机IP，端口可通过启动参数配置
     address.sin_addr.s_addr = inet_addr("127.0.0.1");
     address.sin_port = htons(port);
 
@@ -54,17 +54,19 @@ void ChatServer::setupServer()
         exit(EXIT_FAILURE);
     }
 
-    m_epoll_fd = epoll_create1(0);
-    if (m_epoll_fd == -1)
+    // 创建epoll实例
+    if ((m_epoll_fd = epoll_create1(0)) == -1)
     {
         perror("epoll_create1");
         exit(EXIT_FAILURE);
     }
 
-    struct epoll_event event;
+    // 添加服务器文件描述符到epoll
+    struct epoll_event event
+    {
+    };
     event.events = EPOLLIN;
     event.data.fd = server_fd;
-
     if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, server_fd, &event) == -1)
     {
         perror("epoll_ctl: server_fd");
@@ -125,11 +127,13 @@ void ChatServer::broadcastMessage(const std::string &message, int exclude_fd)
 
 void ChatServer::handleNewConnection()
 {
-    int new_socket;
-    struct sockaddr_in address;
+    struct sockaddr_in address
+    {
+    };
     socklen_t addrlen = sizeof(address);
+    int new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen);
 
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen)) < 0)
+    if (new_socket < 0)
     {
         perror("accept");
         return;
@@ -137,10 +141,11 @@ void ChatServer::handleNewConnection()
 
     setNonBlocking(new_socket);
 
-    struct epoll_event event;
+    struct epoll_event event
+    {
+    };
     event.data.fd = new_socket;
     event.events = EPOLLIN | EPOLLET;
-
     if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, new_socket, &event) == -1)
     {
         perror("epoll_ctl: new_socket");
@@ -154,37 +159,24 @@ void ChatServer::handleNewConnection()
 
 void ChatServer::handleClientMessage(int client_fd)
 {
-    char buffer[BUFFER_SIZE];
-    memset(buffer, 0, sizeof(buffer));
+    char buffer[BUFFER_SIZE] = {0};
 
     int bytes_read = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
     if (bytes_read > 0)
     {
         std::string receivedData(buffer, bytes_read);
 
-        // Handle file info message
+        // 当接收到文件消息对应的消息头
         if (receivedData.find("FILE_INFO:") == 0)
         {
-             std::cout << "Recv file from client " << client_fd  << ", file head len " << bytes_read << std::endl;
-            // Extract file name and size from message
-            size_t firstColon = receivedData.find(":");
-            size_t secondColon = receivedData.find(":", firstColon + 1);
-            if (secondColon != std::string::npos)
-            {
-                std::string fileName = receivedData.substr(firstColon + 1, secondColon - firstColon - 1);
-                std::string fileSizeStr = receivedData.substr(secondColon + 1);
-                int fileSize = std::stoi(fileSizeStr);
-                m_fileSize = fileSize;
-                receiveFileData(client_fd, fileName, fileSize);
-                broadcastFileInfo(fileName, fileSize, client_fd);
-            }
+            processFileInfo(client_fd, receivedData);
         }
-        // Handle file data
+        // 处理文件内容
         else if (receivedData.find("REQUEST_FILE:") == 0)
         {
-           handleFileRequest(client_fd, receivedData);
+            handleFileRequest(client_fd, receivedData);
         }
-        // Handle chat messages
+        // 处理对话消息
         else
         {
             std::string message = m_clients[client_fd] + ": " + buffer;
@@ -195,14 +187,26 @@ void ChatServer::handleClientMessage(int client_fd)
     else if (bytes_read == 0)
     {
         std::cout << m_clients[client_fd] << " disconnected." << std::endl;
-        close(client_fd);
-        m_clients.erase(client_fd);
+        disconnectClient(client_fd);
     }
     else
     {
         std::cerr << "Error reading from client " << client_fd << ": " << strerror(errno) << std::endl;
-        close(client_fd);
-        m_clients.erase(client_fd);
+        disconnectClient(client_fd);
+    }
+}
+
+void ChatServer::processFileInfo(int client_fd, const std::string &receivedData)
+{
+    size_t firstColon = receivedData.find(":");
+    size_t secondColon = receivedData.find(":", firstColon + 1);
+    if (secondColon != std::string::npos)
+    {
+        std::string fileName = receivedData.substr(firstColon + 1, secondColon - firstColon - 1);
+        std::string fileSizeStr = receivedData.substr(secondColon + 1);
+        m_fileSize = std::stoi(fileSizeStr);
+        receiveFileData(client_fd, fileName, m_fileSize);
+        broadcastFileInfo(fileName, m_fileSize, client_fd);
     }
 }
 
@@ -211,11 +215,10 @@ void ChatServer::broadcastFileInfo(const std::string &fileName, uint64_t fileSiz
     std::string fileInfoHeader = "FILE_INFO:" + fileName + ":" + std::to_string(fileSize) + "\n";
     for (const auto &client : m_clients)
     {
-        if (client.first == exclude_fd)
+        if (client.first != exclude_fd)
         {
-            continue;
+            send(client.first, fileInfoHeader.c_str(), fileInfoHeader.size(), 0);
         }
-        send(client.first, fileInfoHeader.c_str(), fileInfoHeader.size(), 0);
     }
 }
 
@@ -242,51 +245,19 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
 
         // 发送文件头信息
         std::string fileHeader = "FILE:" + fileName + ":" + std::to_string(m_fileSize) + ":";
-        ssize_t totalHeaderSent = 0;
-        while (totalHeaderSent < fileHeader.size())
-        {
-            ssize_t headerSent = write(client_fd, fileHeader.c_str() + totalHeaderSent, fileHeader.size() - totalHeaderSent);
-            if (headerSent < 0)
-            {
-                std::cerr << "Failed to send file header to client " << client_fd << ": " << strerror(errno) << std::endl;
-                break;
-            }
-            totalHeaderSent += headerSent;
-        }
-
-        if (totalHeaderSent < fileHeader.size())
-        {
-            // 文件头发送失败，跳过当前客户端
+        if (!sendData(client_fd, fileHeader))
             continue;
-        }
 
         // 强制刷新文头信息到缓冲
         int flag = 1;
-        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
+        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
 
         // 发送文件数据
         while (!file.eof())
         {
             file.read(buffer, bufferSize);
-            std::streamsize bytesRead = file.gcount();
-            ssize_t totalBytesSent = 0;
-
-            while (totalBytesSent < bytesRead)
-            {
-                ssize_t bytesSent = write(client_fd, buffer + totalBytesSent, bytesRead - totalBytesSent);
-                if (bytesSent < 0)
-                {
-                    std::cerr << "Error sending file data to client " << client_fd << ": " << strerror(errno) << std::endl;
-                    break;
-                }
-                totalBytesSent += bytesSent;
-            }
-
-            if (totalBytesSent < bytesRead)
-            {
-                // 文件数据发送失败，跳过当前客户端
+            if (!sendData(client_fd, std::string(buffer, file.gcount())))
                 break;
-            }
         }
 
         std::cout << "File " << fileName << " sent to client " << client_fd << " successfully." << std::endl;
@@ -299,55 +270,75 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
     file.close();
 }
 
-
 void ChatServer::receiveFileData(int client_fd, const std::string &fileName, int fileSize)
 {
-    std::ofstream file(fileName, std::ios::binary);
-    if (!file)
+    std::ofstream outFile(fileName, std::ios::binary | std::ios::trunc);
+    if (!outFile)
     {
-        std::cerr << "Failed to open file for writing: " << fileName << std::endl;
+        std::cerr << "Cannot open file: " << fileName << std::endl;
         return;
     }
 
-    int totalBytesReceived = 0;
     char buffer[BUFFER_SIZE];
-    while (totalBytesReceived < fileSize)
+    uint64_t receivedSize = 0;
+
+    while (receivedSize < fileSize)
     {
-        int bytesReceived = recv(client_fd, buffer, sizeof(buffer), 0);
-        std::cout << "Read from file byte " << bytesReceived << std::endl;
-        if (bytesReceived > 0)
+        int bytesRead = recv(client_fd, buffer, sizeof(buffer), 0);
+        if (bytesRead > 0)
         {
-            file.write(buffer, bytesReceived);
-            totalBytesReceived += bytesReceived;
+            outFile.write(buffer, bytesRead);
+            receivedSize += bytesRead;
         }
-        else if (bytesReceived == 0)
+        else if (bytesRead == 0)
         {
-            std::cout << "Client " << client_fd << " disconnected during file transfer." << std::endl;
+            std::cout << "File reception completed." << std::endl;
             break;
         }
         else
         {
-            std::cerr << "Error receiving file data from client " << client_fd << ": " << strerror(errno) << std::endl;
+            std::cerr << "Error receiving file data: " << strerror(errno) << std::endl;
             break;
         }
     }
 
-    file.close();
-    if (totalBytesReceived == fileSize)
-    {
-        std::cout << "File received successfully from client " << client_fd << ": " << fileName << std::endl;
-    }
-    else
-    {
-        std::cerr << "File transfer incomplete or failed from client " << client_fd << std::endl;
-    }
+    outFile.close();
 }
 
-void ChatServer::handleFileRequest(int client_fd, const std::string &request) {
-    // Extract file name from the request
+void ChatServer::handleFileRequest(int client_fd, const std::string &request)
+{
+    // 从请求消息中解析文件名
     size_t colonPos = request.find(":");
-    if (colonPos != std::string::npos) {
+    if (colonPos != std::string::npos)
+    {
         std::string fileName = request.substr(colonPos + 1);
         sendFileToClients(fileName, client_fd);
     }
+}
+
+bool ChatServer::sendData(int client_fd, const std::string &data)
+{
+    ssize_t totalSent = 0;
+    ssize_t dataSize = data.size();
+    const char *dataPtr = data.c_str();
+
+    while (totalSent < dataSize)
+    {
+        ssize_t sent = send(client_fd, dataPtr + totalSent, dataSize - totalSent, 0);
+        if (sent < 0)
+        {
+            std::cerr << "Failed to send data to client " << client_fd << ": " << strerror(errno) << std::endl;
+            return false;
+        }
+        totalSent += sent;
+    }
+    return true;
+}
+
+void ChatServer::disconnectClient(int client_fd)
+{
+    std::cout << "Client " << client_fd << " disconnected." << std::endl;
+    close(client_fd);
+    epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
+    m_clients.erase(client_fd);
 }
