@@ -36,26 +36,9 @@
     </widget>
    </item>
    <item>
-    <widget class="QTextEdit" name="textEditMessage"/>
-   </item>
-   <item>
-    <widget class="QPushButton" name="sendButton">
+    <widget class="QLabel" name="statusLabel">
      <property name="text">
-      <string>Send</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QPushButton" name="sendFileButton">
-     <property name="text">
-      <string>Send File</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QPushButton" name="receiveFileButton">
-     <property name="text">
-      <string>Receive File</string>
+      <string>Disconnected</string>
      </property>
     </widget>
    </item>
@@ -63,7 +46,32 @@
     <widget class="QTextBrowser" name="textBrowserChat"/>
    </item>
    <item>
-    <widget class="QProgressBar" name="progressBar"/>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QTextEdit" name="lineEditMessage"/>
+     </item>
+     <item>
+      <widget class="QPushButton" name="sendButton">
+       <property name="text">
+        <string>Send</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="fileOperationsLayout">
+     <item>
+      <widget class="QPushButton" name="sendFileButton">
+       <property name="text">
+        <string>Send File</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QProgressBar" name="progressBar"/>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
