@@ -186,7 +186,6 @@ void ChatServer::handleClientMessage(int client_fd)
     }
     else if (bytes_read == 0)
     {
-        std::cout << m_clients[client_fd] << " disconnected." << std::endl;
         disconnectClient(client_fd);
     }
     else
