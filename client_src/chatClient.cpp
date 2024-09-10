@@ -75,7 +75,7 @@ void Client::processReceivedData() {
     } else if (data.startsWith("FILE:")) {
         handleFileData(data);
     } else {
-        ui->textBrowserChat->append("Server: " + QString(data));
+        ui->textBrowserChat->append(QString(data));
     }
 }
 
