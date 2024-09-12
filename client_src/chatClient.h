@@ -46,8 +46,12 @@ private:
   // 测试时会将不同客户端的文件存在同一个路径下，所以增加id区分不同客户端的文件
   QString generateClientId();
 
+  // 更新连接状态
+  void updateStatusLabel(bool connected);
+
 private slots:
   void connectToServer();
+  void disconnectFromServer();
   void sendMessage();
   void sendFile();
   void displayError(QAbstractSocket::SocketError socketError);

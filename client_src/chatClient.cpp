@@ -12,17 +12,23 @@ Client::Client(QWidget* parent) :
     QWidget(parent), ui(new Ui::Client), tcpSocket(nullptr), totalBytesToReceive(0), bytesReceived(0) {
     ui->setupUi(this);
 
-    // 初始状态下隐藏进度条
     ui->progressBar->hide();
 
-    ui->statusLabel->setText("Disconnected");
+    updateStatusLabel(false);  // 初始化状态显示
 
     connect(ui->connectButton, &QPushButton::clicked, this, &Client::connectToServer);
+    connect(ui->disconnectButton, &QPushButton::clicked, this, &Client::disconnectFromServer);
     connect(ui->sendButton, &QPushButton::clicked, this, &Client::sendMessage);
     connect(ui->sendFileButton, &QPushButton::clicked, this, &Client::sendFile);
 }
 
-Client::~Client() { delete ui; }
+Client::~Client() {
+    delete ui;
+    if (tcpSocket) {
+        tcpSocket->disconnectFromHost();
+        tcpSocket->deleteLater();
+    }
+}
 
 void Client::handleSocketConnectionState() {
     if (tcpSocket->state() == QAbstractSocket::ConnectedState) {
@@ -38,13 +44,13 @@ void Client::initializeSocket() {
     tcpSocket = new QTcpSocket(this);
 
     connect(tcpSocket, &QTcpSocket::connected, this, [this]() {
-        ui->statusLabel->setText("Connected");
+        updateStatusLabel(true);
         QMessageBox::information(nullptr, "Connected", "Successfully connected to the server.");
     });
 
     connect(tcpSocket, &QTcpSocket::disconnected, this, [this]() {
-        ui->statusLabel->setText("Disconnected");
-        QMessageBox::information(nullptr, "Disconnected", "Disconnected from the server.");
+        updateStatusLabel(false);
+        // QMessageBox::information(nullptr, "Disconnected", "Disconnected from the server.");
     });
 
     connect(tcpSocket, &QTcpSocket::readyRead, this, [this]() { processReceivedData(); });
@@ -68,6 +74,26 @@ void Client::connectToServer() {
     tcpSocket->connectToHost(hostAddress, port);  // 检查套接字状态并处理连接逻辑
 }
 
+void Client::disconnectFromServer() {
+    if (tcpSocket && tcpSocket->state() == QAbstractSocket::ConnectedState) {
+        tcpSocket->disconnectFromHost();
+        tcpSocket->deleteLater();
+        tcpSocket = nullptr;
+        updateStatusLabel(false);
+        QMessageBox::information(this, "Disconnected", "You have disconnected from the server.");
+    }
+}
+
+void Client::updateStatusLabel(bool connected) {
+    if (connected) {
+        ui->statusLabel->setText("connected");
+        ui->statusLabel->setStyleSheet("QLabel { color: green; font-weight: bold; }");
+    } else {
+        ui->statusLabel->setText("disconnected");
+        ui->statusLabel->setStyleSheet("QLabel { color: red; font-weight: bold; }");
+    }
+}
+
 void Client::processReceivedData() {
     QByteArray data = tcpSocket->readAll();
     if (data.startsWith("FILE_INFO:")) {
@@ -80,22 +106,13 @@ void Client::processReceivedData() {
 }
 
 void Client::handleFileInfo(const QByteArray& fileInfoData) {
-    QString fileInfoStr = QString::fromUtf8(fileInfoData);
-    QStringList fileInfoParts = fileInfoStr.split(':');
+    QStringList fileInfoParts = QString::fromUtf8(fileInfoData).split(':');
 
     if (fileInfoParts.size() < 3)
         return;  // 数据格式不正确
 
     QString fileName = fileInfoParts[1];
     qint64 fileSize = fileInfoParts[2].toLongLong();
-
-    receivedFile = new QFile(fileName);
-    if (!receivedFile->open(QIODevice::WriteOnly)) {
-        QMessageBox::warning(this, "Error", "Failed to open file for writing.");
-        delete receivedFile;
-        receivedFile = nullptr;
-        return;
-    }
 
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(
@@ -145,14 +162,8 @@ void Client::sendFile() {
 
     // 发送文件头
     QString fileHeader = QString("FILE_INFO:%1:%2:").arg(QFileInfo(file).fileName()).arg(file.size());
-    QByteArray headerBytes = fileHeader.toUtf8();
-    tcpSocket->write(headerBytes);
+    tcpSocket->write(fileHeader.toUtf8());
     tcpSocket->flush();  // 在发送文件内容前，先将头部发送完毕
-
-    // 创建进度条
-    // QProgressDialog progressDialog("Sending file...", "Cancel", 0, file.size(), this);
-    // progressDialog.setWindowModality(Qt::WindowModal);
-    // progressDialog.setMinimumDuration(0); // 立即显示进度条
 
     // 分块发送文件数据
     const qint64 bufferSize = 64 * 1024;  // 每次读取64KB
@@ -160,12 +171,6 @@ void Client::sendFile() {
     QByteArray buffer;
 
     while (!file.atEnd()) {
-        // if (progressDialog.wasCanceled())
-        // {
-        //     QMessageBox::information(this, "Canceled", "File transfer was canceled");
-        //     break;
-        // }
-
         buffer = file.read(bufferSize);
         qint64 result = tcpSocket->write(buffer);
         if (result == -1) {
@@ -174,8 +179,6 @@ void Client::sendFile() {
         }
         tcpSocket->flush();
         bytesSent += result;
-        // progressDialog.setValue(bytesSent);
-        // QApplication::processEvents();  // 确保进度条更新
     }
 
     file.close();
@@ -189,13 +192,8 @@ void Client::sendFile() {
     }
 }
 
-QString Client::generateClientId() {
-    QUuid uuid = QUuid::createUuid();
-    return uuid.toString();  // 返回UUID字符串
-}
-
 void Client::handleFileData(const QByteArray& data) {
-    if (!tcpSocket || !receivedFile || !receivedFile->isOpen())
+    if (!tcpSocket)
         return;
 
     // 处理文件数据的头部信息
@@ -260,4 +258,9 @@ void Client::cleanupFileReception() {
 
 void Client::displayError(QAbstractSocket::SocketError socketError) {
     QMessageBox::critical(this, "Socket Error", tcpSocket->errorString());
+}
+
+QString Client::generateClientId() {
+    QUuid uuid = QUuid::createUuid();
+    return uuid.toString();  // 返回UUID字符串
 }
