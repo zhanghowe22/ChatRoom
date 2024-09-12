@@ -3,6 +3,7 @@
 
 #define MAX_EVENTS 10
 #define BUFFER_SIZE 1024
+#define BACKLOG 10
 
 ChatServer::ChatServer(int port) : port(port), server_fd(-1), m_epoll_fd(-1), m_fileSize(0) {}
 
@@ -39,18 +40,21 @@ void ChatServer::setupServer()
 
     address.sin_family = AF_INET;
     // TODO: IP改为获取本机IP，端口可通过启动参数配置
+    // address.sin_addr.s_addr = INADDR_ANY;
     address.sin_addr.s_addr = inet_addr("127.0.0.1");
     address.sin_port = htons(port);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
         perror("bind failed");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 3) < 0)
+    if (listen(server_fd, BACKLOG) < 0)
     {
         perror("listen");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
@@ -58,18 +62,18 @@ void ChatServer::setupServer()
     if ((m_epoll_fd = epoll_create1(0)) == -1)
     {
         perror("epoll_create1");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
     // 添加服务器文件描述符到epoll
-    struct epoll_event event
-    {
-    };
+    struct epoll_event event;
     event.events = EPOLLIN;
     event.data.fd = server_fd;
     if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, server_fd, &event) == -1)
     {
-        perror("epoll_ctl: server_fd");
+        perror("epoll_ctl: server_fd add failed");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
@@ -83,6 +87,10 @@ void ChatServer::run()
     while (true)
     {
         int n = epoll_wait(m_epoll_fd, events, MAX_EVENTS, -1);
+        if(n == -1) {
+            perror("epoll_wait failed");
+            break;
+        }
 
         for (int i = 0; i < n; i++)
         {
@@ -103,20 +111,20 @@ void ChatServer::setNonBlocking(int sockfd)
     int opts = fcntl(sockfd, F_GETFL);
     if (opts < 0)
     {
-        perror("fcntl(F_GETFL)");
+        perror("fcntl(F_GETFL) failed");
         exit(1);
     }
-    opts = (opts | O_NONBLOCK);
-    if (fcntl(sockfd, F_SETFL, opts) < 0)
+
+    if (fcntl(sockfd, F_SETFL, opts | O_NONBLOCK) < 0)
     {
-        perror("fcntl(F_SETFL)");
+        perror("fcntl(F_SETFL) failed");
         exit(1);
     }
 }
 
 void ChatServer::broadcastMessage(const std::string &message, int exclude_fd)
 {
-    for (auto &client : m_clients)
+    for (const auto &client : m_clients)
     {
         if (client.first != exclude_fd)
         {
@@ -127,15 +135,13 @@ void ChatServer::broadcastMessage(const std::string &message, int exclude_fd)
 
 void ChatServer::handleNewConnection()
 {
-    struct sockaddr_in address
-    {
-    };
+    struct sockaddr_in address;
     socklen_t addrlen = sizeof(address);
     int new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen);
 
     if (new_socket < 0)
     {
-        perror("accept");
+        perror("accept failed");
         return;
     }
 
@@ -238,9 +244,7 @@ void ChatServer::sendFileToClients(const std::string &fileName, const int &exclu
         int client_fd = client.first;
 
         if (client_fd != exclude_fd)
-        {
             continue;
-        }
 
         // 发送文件头信息
         std::string fileHeader = "FILE:" + fileName + ":" + std::to_string(m_fileSize) + ":";
