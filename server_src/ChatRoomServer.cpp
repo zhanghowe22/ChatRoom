@@ -32,9 +32,10 @@ void ChatServer::setupServer()
         exit(EXIT_FAILURE);
     }
 
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) == -1)
     {
         perror("setsockopt");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
@@ -66,18 +67,22 @@ void ChatServer::setupServer()
         exit(EXIT_FAILURE);
     }
 
-    // 添加服务器文件描述符到epoll
-    struct epoll_event event;
-    event.events = EPOLLIN;
-    event.data.fd = server_fd;
-    if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, server_fd, &event) == -1)
-    {
-        perror("epoll_ctl: server_fd add failed");
-        close(server_fd);
-        exit(EXIT_FAILURE);
-    }
+    addToEpoll(server_fd);
 
     std::cout << "Server [" << inet_ntoa(address.sin_addr) << "] is listening on port " << port << std::endl;
+}
+
+void ChatServer::addToEpoll(int fd)
+{
+    struct epoll_event event;
+    event.events = EPOLLIN | EPOLLET;
+    event.data.fd = fd;
+    if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1)
+    {
+        perror("epoll_ctl: addToEpoll failed");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
 }
 
 void ChatServer::run()
@@ -147,16 +152,7 @@ void ChatServer::handleNewConnection()
 
     setNonBlocking(new_socket);
 
-    struct epoll_event event
-    {
-    };
-    event.data.fd = new_socket;
-    event.events = EPOLLIN | EPOLLET;
-    if (epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, new_socket, &event) == -1)
-    {
-        perror("epoll_ctl: new_socket");
-        return;
-    }
+    addToEpoll(new_socket);
 
     std::string client_id = "Client " + std::to_string(new_socket);
     m_clients[new_socket] = client_id;

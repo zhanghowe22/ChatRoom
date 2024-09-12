@@ -42,6 +42,9 @@ private:
     // 服务端启动监听
     void setupServer();
 
+    // 添加到Epoll队列
+    void addToEpoll(int fd);
+
     // 主循环 使用epoll监听事件(新的客户端连接或客户端消息)，调用对应处理函数 
     void run();
 
