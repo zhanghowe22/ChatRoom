@@ -13,6 +13,77 @@
   <property name="windowTitle">
    <string>聊天室v1.0</string>
   </property>
+  <!-- 设置整体背景色 -->
+  <property name="styleSheet">
+   <string>
+    QWidget {
+      background-color: #f5f5f5; /* 轻微变化的浅灰色背景 */
+      font-family: "Segoe UI"; /* 更现代的字体 */
+      font-size: 12px;
+    }
+    QGroupBox {
+      border: 1px solid #dcdcdc;
+      border-radius: 8px;
+      font-weight: bold;
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #ffffff; /* 背景颜色稍有变化 */
+    }
+    QGroupBox::title {
+      subcontrol-origin: margin;
+      subcontrol-position: top left;
+      padding: 5px;
+      background-color: #e0e0e0; /* 标题背景色 */
+      border-radius: 6px;
+    }
+    QPushButton {
+      background-color: #007bff; /* 统一蓝色按钮 */
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    QPushButton:hover {
+      background-color: #0056b3; /* 悬停效果 */
+    }
+    QPushButton:pressed {
+      background-color: #004085; /* 按下效果 */
+    }
+    QLabel#statusLabel {
+      color: #ff3333;
+      font-weight: bold;
+      font-size: 14px;
+      padding: 6px;
+      background-color: #fff3f3; /* 状态标签背景颜色 */
+      border-radius: 4px;
+    }
+    QTextBrowser {
+      background-color: #ffffff;
+      border: 1px solid #d0d0d0;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    QTextEdit {
+      background-color: #ffffff;
+      border: 1px solid #d0d0d0;
+      padding: 8px;
+      border-radius: 6px;
+    }
+    QProgressBar {
+      text-align: center;
+      color: #333;
+      background-color: #e0e0e0;
+      border: 1px solid #b0b0b0;
+      border-radius: 6px;
+      padding: 1px;
+    }
+    QProgressBar::chunk {
+      background-color: #4caf50;
+      border-radius: 6px;
+    }
+   </string>
+  </property>
   <layout class="QVBoxLayout" name="mainVerticalLayout">
    <item>
     <widget class="QGroupBox" name="connectionGroup">
@@ -48,11 +119,6 @@
         <property name="toolTip">
          <string>连接到服务器</string>
         </property>
-        <property name="icon">
-         <iconset resource="icons.qrc">
-          <normaloff>:/icons/connect.png</normaloff>
-         </iconset>
-        </property>
        </widget>
       </item>
       <item>
@@ -62,11 +128,6 @@
         </property>
         <property name="toolTip">
          <string>断开与服务器的连接</string>
-        </property>
-        <property name="icon">
-         <iconset resource="icons.qrc">
-          <normaloff>:/icons/disconnect.png</normaloff>
-         </iconset>
         </property>
        </widget>
       </item>
@@ -84,15 +145,6 @@
      <property name="toolTip">
       <string>显示当前连接状态</string>
      </property>
-     <property name="styleSheet">
-      <string>
-       QLabel {
-        color: red;
-        font-weight: bold;
-        font-size: 14px;
-       }
-      </string>
-     </property>
     </widget>
    </item>
    <item>
@@ -108,15 +160,6 @@
           <width>0</width>
           <height>200</height>
          </size>
-        </property>
-        <property name="styleSheet">
-         <string>
-          QTextBrowser {
-           background-color: #f0f0f0;
-           border: 1px solid #ccc;
-           padding: 5px;
-          }
-         </string>
         </property>
         <property name="toolTip">
          <string>显示聊天记录</string>
@@ -151,11 +194,6 @@
             <property name="toolTip">
              <string>发送消息到服务器</string>
             </property>
-            <property name="icon">
-             <iconset resource="icons.qrc">
-              <normaloff>:/icons/send.png</normaloff>
-             </iconset>
-            </property>
            </widget>
           </item>
           <item>
@@ -165,11 +203,6 @@
             </property>
             <property name="toolTip">
              <string>选择并发送文件到服务器</string>
-            </property>
-            <property name="icon">
-             <iconset resource="icons.qrc">
-              <normaloff>:/icons/file.png</normaloff>
-             </iconset>
             </property>
            </widget>
           </item>
