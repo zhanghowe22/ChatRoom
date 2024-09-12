@@ -1,5 +1,6 @@
 #include "chatClient.h"
 
+#include <QAbstractSocket>
 #include <QDataStream>
 #include <QFile>
 #include <QFileDialog>
@@ -55,8 +56,8 @@ void Client::initializeSocket() {
 
     connect(tcpSocket, &QTcpSocket::readyRead, this, [this]() { processReceivedData(); });
 
-    // connect(tcpSocket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred), this,
-    //        &Client::displayError);
+	connect(tcpSocket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this,
+		&Client::displayError);
 }
 
 void Client::connectToServer() {
@@ -69,6 +70,9 @@ void Client::connectToServer() {
 
     QString hostAddress = ui->lineEditHost->text();
     quint16 port = ui->lineEditPort->text().toUShort();
+
+	connect(tcpSocket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this,
+		&Client::displayError);
 
     // 连接服务器
     tcpSocket->connectToHost(hostAddress, port);  // 检查套接字状态并处理连接逻辑
@@ -257,7 +261,28 @@ void Client::cleanupFileReception() {
 }
 
 void Client::displayError(QAbstractSocket::SocketError socketError) {
-    QMessageBox::critical(this, "Socket Error", tcpSocket->errorString());
+    // 处理不同类型的错误
+    switch (socketError) {
+    case QAbstractSocket::HostNotFoundError:
+        QMessageBox::critical(this, "Error", "The host was not found. Please check the host and port settings.");
+        break;
+    case QAbstractSocket::ConnectionRefusedError:
+        QMessageBox::critical(this, "Error", "The connection was refused by the peer. Make sure the server is running and check that the host and port settings are correct.");
+        break;
+    case QAbstractSocket::RemoteHostClosedError:
+        QMessageBox::information(this, "Disconnected", "The remote host closed the connection.");
+        updateStatusLabel(false);
+        break;
+    default:
+        QMessageBox::critical(this, "Error", tcpSocket->errorString());
+        break;
+    }
+    updateStatusLabel(false);  // 更新连接状态为断开
+	if (tcpSocket) {
+		tcpSocket->disconnectFromHost();
+		tcpSocket->deleteLater();
+        tcpSocket = nullptr;
+	}
 }
 
 QString Client::generateClientId() {
