@@ -1,9 +1,13 @@
 # 忽略所有 .log 文件
 *.log
+*.VC*
 
 # 忽略某个目录
 build/
 .vscode
+
+client_src/
+.vs
 
 # 忽略所有 .tmp 文件
 *.tmp
