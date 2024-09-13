@@ -144,19 +144,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="statusLabel">
-        <property name="text">
-         <string>未连接</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="toolTip">
-         <string>显示当前连接状态</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QGroupBox" name="chatGroup">
         <property name="title">
          <string>聊天窗口</string>
@@ -245,25 +232,25 @@
     </widget>
    </item>
    <item>
-    <widget class="QWidget" name="clientListContainer">
-     <property name="minimumWidth">
-      <number>150</number>
-     </property>
-     <layout class="QVBoxLayout" name="clientListLayout">
+    <widget class="QWidget" name="rightPanel">
+     <layout class="QVBoxLayout" name="rightPanelLayout">
       <item>
-       <widget class="QLabel" name="clientListLabel">
+       <widget class="QLabel" name="statusLabel">
         <property name="text">
-         <string>在线用户</string>
+         <string>未连接</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
+        </property>
+        <property name="toolTip">
+         <string>显示当前连接状态</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QListWidget" name="clientListWidget">
         <property name="toolTip">
-         <string>显示在线用户列表</string>
+         <string>在线用户列表</string>
         </property>
        </widget>
       </item>
