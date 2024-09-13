@@ -64,15 +64,13 @@ void Client::connectToServer() {
     // 检查套接字状态并处理连接逻辑
     if (tcpSocket) {
         handleSocketConnectionState();
+        return;
     } else {
         initializeSocket();
     }
 
     QString hostAddress = ui->lineEditHost->text();
     quint16 port = ui->lineEditPort->text().toUShort();
-
-	connect(tcpSocket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this,
-		&Client::displayError);
 
     // 连接服务器
     tcpSocket->connectToHost(hostAddress, port);  // 检查套接字状态并处理连接逻辑
