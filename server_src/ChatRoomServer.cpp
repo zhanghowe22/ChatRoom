@@ -157,6 +157,8 @@ void ChatServer::handleNewConnection()
     std::string client_id = "Client " + std::to_string(new_socket);
     m_clients[new_socket] = client_id;
     std::cout << client_id << " connected." << std::endl;
+
+    broadcastClientList();
 }
 
 void ChatServer::handleClientMessage(int client_fd)
@@ -334,10 +336,26 @@ bool ChatServer::sendData(int client_fd, const std::string &data)
     return true;
 }
 
+void ChatServer::broadcastClientList()
+{
+    std::string clientListMessage = "CLIENT_LIST:";
+    for(const auto &client : m_clients)
+    {
+        clientListMessage += client.second + ","; // 添加客户端ID
+    }
+    clientListMessage.pop_back(); // 去除最后一个逗号
+
+    for(const auto &client : m_clients) {
+        send(client.first, clientListMessage.c_str(), clientListMessage.size(), 0);
+    }
+}
+
 void ChatServer::disconnectClient(int client_fd)
 {
     std::cout << "Client " << client_fd << " disconnected." << std::endl;
     close(client_fd);
     epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, client_fd, nullptr);
     m_clients.erase(client_fd);
+
+    broadcastClientList();
 }

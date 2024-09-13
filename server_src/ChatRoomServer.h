@@ -79,6 +79,9 @@ private:
 
     // 向指定socket发送数据
     bool sendData(int client_fd, const std::string &data);
+
+    // 广播当前已连接的客户端列表
+    void broadcastClientList();
 };
 
 #endif // CHATSERVER_H
