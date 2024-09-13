@@ -49,13 +49,16 @@ private:
   // 更新连接状态
   void updateStatusLabel(bool connected);
 
+  void handleFileInfo(const QByteArray &fileInfoData);
+
+  void handleClientList(const QByteArray& data);
+
 private slots:
   void connectToServer();
   void disconnectFromServer();
   void sendMessage();
   void sendFile();
   void displayError(QAbstractSocket::SocketError socketError);
-  void handleFileInfo(const QByteArray &fileInfoData);
 
 private:
   Ui::Client *ui;

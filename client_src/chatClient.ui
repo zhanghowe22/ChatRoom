@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>600</width>
+    <width>800</width>
     <height>500</height>
    </rect>
   </property>
@@ -82,154 +82,192 @@
       background-color: #4caf50;
       border-radius: 6px;
     }
+    QListWidget {
+      background-color: #ffffff;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      padding: 8px;
+    }
    </string>
   </property>
-  <layout class="QVBoxLayout" name="mainVerticalLayout">
+  <layout class="QHBoxLayout" name="mainHorizontalLayout">
    <item>
-    <widget class="QGroupBox" name="connectionGroup">
-     <property name="title">
-      <string>连接设置</string>
-     </property>
-     <layout class="QHBoxLayout" name="connectionLayout">
-      <item>
-       <widget class="QLineEdit" name="lineEditHost">
-        <property name="placeholderText">
-         <string>主机地址</string>
-        </property>
-        <property name="toolTip">
-         <string>输入服务器的IP地址</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="lineEditPort">
-        <property name="placeholderText">
-         <string>端口</string>
-        </property>
-        <property name="toolTip">
-         <string>输入服务器的端口号</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="connectButton">
-        <property name="text">
-         <string>连接</string>
-        </property>
-        <property name="toolTip">
-         <string>连接到服务器</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="disconnectButton">
-        <property name="text">
-         <string>断开连接</string>
-        </property>
-        <property name="toolTip">
-         <string>断开与服务器的连接</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QLabel" name="statusLabel">
-     <property name="text">
-      <string>未连接</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-     <property name="toolTip">
-      <string>显示当前连接状态</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="chatGroup">
-     <property name="title">
-      <string>聊天窗口</string>
-     </property>
+    <widget class="QWidget" name="chatContainer">
      <layout class="QVBoxLayout" name="chatVerticalLayout">
       <item>
-       <widget class="QTextBrowser" name="textBrowserChat">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>200</height>
-         </size>
+       <widget class="QGroupBox" name="connectionGroup">
+        <property name="title">
+         <string>连接设置</string>
+        </property>
+        <layout class="QHBoxLayout" name="connectionLayout">
+         <item>
+          <widget class="QLineEdit" name="lineEditHost">
+           <property name="placeholderText">
+            <string>主机地址</string>
+           </property>
+           <property name="toolTip">
+            <string>输入服务器的IP地址</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="lineEditPort">
+           <property name="placeholderText">
+            <string>端口</string>
+           </property>
+           <property name="toolTip">
+            <string>输入服务器的端口号</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="connectButton">
+           <property name="text">
+            <string>连接</string>
+           </property>
+           <property name="toolTip">
+            <string>连接到服务器</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="disconnectButton">
+           <property name="text">
+            <string>断开连接</string>
+           </property>
+           <property name="toolTip">
+            <string>断开与服务器的连接</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="statusLabel">
+        <property name="text">
+         <string>未连接</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
         </property>
         <property name="toolTip">
-         <string>显示聊天记录</string>
+         <string>显示当前连接状态</string>
         </property>
        </widget>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="messageLayout">
-        <item>
-         <widget class="QTextEdit" name="lineEditMessage">
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>50</height>
-           </size>
-          </property>
-          <property name="placeholderText">
-           <string>在此输入消息...</string>
-          </property>
-          <property name="toolTip">
-           <string>输入要发送的消息</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QVBoxLayout" name="buttonColumnLayout">
-          <item>
-           <widget class="QPushButton" name="sendButton">
-            <property name="text">
-             <string>发送</string>
-            </property>
-            <property name="toolTip">
-             <string>发送消息到服务器</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="sendFileButton">
-            <property name="text">
-             <string>发送文件</string>
-            </property>
-            <property name="toolTip">
-             <string>选择并发送文件到服务器</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-       </layout>
+       <widget class="QGroupBox" name="chatGroup">
+        <property name="title">
+         <string>聊天窗口</string>
+        </property>
+        <layout class="QVBoxLayout" name="chatContentLayout">
+         <item>
+          <widget class="QTextBrowser" name="textBrowserChat">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>200</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>显示聊天记录</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="messageLayout">
+           <item>
+            <widget class="QTextEdit" name="lineEditMessage">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>50</height>
+              </size>
+             </property>
+             <property name="placeholderText">
+              <string>在此输入消息...</string>
+             </property>
+             <property name="toolTip">
+              <string>输入要发送的消息</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="buttonColumnLayout">
+             <item>
+              <widget class="QPushButton" name="sendButton">
+               <property name="text">
+                <string>发送</string>
+               </property>
+               <property name="toolTip">
+                <string>发送消息到服务器</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="sendFileButton">
+               <property name="text">
+                <string>发送文件</string>
+               </property>
+               <property name="toolTip">
+                <string>选择并发送文件到服务器</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QProgressBar" name="progressBar">
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>100</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+        <property name="textVisible">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>显示文件传输进度</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
    </item>
    <item>
-    <widget class="QProgressBar" name="progressBar">
-     <property name="minimum">
-      <number>0</number>
+    <widget class="QWidget" name="clientListContainer">
+     <property name="minimumWidth">
+      <number>150</number>
      </property>
-     <property name="maximum">
-      <number>100</number>
-     </property>
-     <property name="value">
-      <number>0</number>
-     </property>
-     <property name="textVisible">
-      <bool>true</bool>
-     </property>
-     <property name="toolTip">
-      <string>显示文件传输进度</string>
-     </property>
+     <layout class="QVBoxLayout" name="clientListLayout">
+      <item>
+       <widget class="QLabel" name="clientListLabel">
+        <property name="text">
+         <string>在线用户</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QListWidget" name="clientListWidget">
+        <property name="toolTip">
+         <string>显示在线用户列表</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
   </layout>

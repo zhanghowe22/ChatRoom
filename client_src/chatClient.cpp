@@ -96,13 +96,23 @@ void Client::updateStatusLabel(bool connected) {
     }
 }
 
-void Client::processReceivedData() {
+void Client::processReceivedData()
+{
     QByteArray data = tcpSocket->readAll();
-    if (data.startsWith("FILE_INFO:")) {
+    if (data.startsWith("FILE_INFO:"))
+    {
         handleFileInfo(data);
-    } else if (data.startsWith("FILE:")) {
+    }
+    else if (data.startsWith("FILE:"))
+    {
         handleFileData(data);
-    } else {
+    }
+    else if (data.startsWith("CLIENT_LIST:"))
+    {
+        handleClientList(data);
+    }
+    else
+    {
         ui->textBrowserChat->append(QString(data));
     }
 }
@@ -286,4 +296,11 @@ void Client::displayError(QAbstractSocket::SocketError socketError) {
 QString Client::generateClientId() {
     QUuid uuid = QUuid::createUuid();
     return uuid.toString();  // 返回UUID字符串
+}
+
+void Client::handleClientList(const QByteArray &data)
+{
+    ui->clientListWidget->clear(); // 清空当前列表
+    QStringList clients = QString::fromUtf8(data).split(':')[1].split(',');
+    ui->clientListWidget->addItems(clients); // 添加新的客户端列表项
 }
